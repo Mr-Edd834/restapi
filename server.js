@@ -1,73 +1,99 @@
-// server.js
+// Load environment variables
+require('dotenv').config({ path: './config/.env' });
 
-// Import packages
-const express = require("express");
-const mongoose = require("mongoose");
-require("dotenv").config({ path: "./config/.env" });
+// Import required modules
+const express = require('express');
+const mongoose = require('mongoose');
+const User = require('./models/user');
 
-// Initialize app
+// Initialize express app
 const app = express();
 
-// Middleware to parse JSON
+// Middleware to parse JSON bodies
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.error(err));
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.error('Could not connect to MongoDB', err));
 
-// Import the User model
-const User = require("../models/User");
+// Routes
 
-// --- Your routes go here ---
-
-// GET all users
-app.get("/users", async (req, res) => {
+// GET: RETURN ALL USERS
+app.get('/users', async (req, res) => {
   try {
+    // Find all users in the database
     const users = await User.find();
+    // Return users as JSON response
     res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    // Handle errors
+    res.status(500).json({ message: error.message });
   }
 });
 
-// POST new user
-app.post("/users", async (req, res) => {
+// POST: ADD A NEW USER TO THE DATABASE
+app.post('/users', async (req, res) => {
   try {
-    const newUser = new User(req.body);
-    const savedUser = await newUser.save();
-    res.json(savedUser);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    // Create a new user instance with request body data
+    const user = new User(req.body);
+    // Save the user to the database
+    const savedUser = await user.save();
+    // Return the saved user as JSON response
+    res.status(201).json(savedUser);
+  } catch (error) {
+    // Handle validation errors or other issues
+    res.status(400).json({ message: error.message });
   }
 });
 
-// PUT update user by ID
-app.put("/users/:id", async (req, res) => {
+// PUT: EDIT A USER BY ID
+app.put('/users/:id', async (req, res) => {
   try {
+    // Find user by ID and update with request body data
     const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
+      req.params.id, 
+      req.body, 
+      { new: true, runValidators: true } // Return updated document and validate update
     );
+    
+    // If user not found, return 404
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Return updated user as JSON response
     res.json(updatedUser);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  } catch (error) {
+    // Handle errors
+    res.status(400).json({ message: error.message });
   }
 });
 
-// DELETE remove user by ID
-app.delete("/users/:id", async (req, res) => {
+// DELETE: REMOVE A USER BY ID
+app.delete('/users/:id', async (req, res) => {
   try {
-    await User.findByIdAndDelete(req.params.id);
-    res.json({ message: "User deleted" });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    // Find user by ID and delete
+    const deletedUser = await User.findByIdAndDelete(req.params.id);
+    
+    // If user not found, return 404
+    if (!deletedUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Return success message
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    // Handle errors
+    res.status(500).json({ message: error.message });
   }
 });
 
-// --- End of routes ---
-
-// Launch server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
